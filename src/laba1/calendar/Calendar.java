@@ -1,8 +1,8 @@
 package laba1.calendar;
 
+import jdk.jshell.spi.ExecutionControl;
 import org.jetbrains.annotations.NotNull;
 
-import javax.management.BadAttributeValueExpException;
 import java.io.Serializable;
 import java.util.TimeZone;
 
@@ -138,7 +138,7 @@ public abstract class Calendar implements Serializable {
         AGE_OF_UNIVERSE = 13_799_000_000L;
         DEFAULT_RAW_OFFSET = TimeZone.getDefault().getRawOffset();
         DAY_OF_WEEK_1_JAN_1970 = DayOfWeek.Thursday;
-        DAY_OF_WEEK_BIG_BANG = DayOfWeek.Sunday;
+        DAY_OF_WEEK_BIG_BANG = DayOfWeek.Sunday;                                   // TODO: 9/29/2021 evaluate and set appropriate day of week
         MILLIS_FROM_BIN_BANG = AGE_OF_UNIVERSE * AVERAGE_MILLIS_IN_YEAR;
     }
 
@@ -423,7 +423,7 @@ public abstract class Calendar implements Serializable {
          * @param count number of days to be added (can be negative)
          * @return month after count days
          */
-        public Month roll(int year, int day, int count) {
+        public Month roll(long year, int day, int count) {
             boolean leap = isLeap(year);
             int days = toDayOfYear(this, day, isLeap(year)) + count;
             int daysInYear;
@@ -647,13 +647,18 @@ public abstract class Calendar implements Serializable {
         }
     }
 
+    /**
+     * Calculates day of week appropriate to current time
+     * @return current day of week
+     */
     public DayOfWeek getDayOfWeek() {
         // after common year day of week +1
         // after leap year day of week +2
         // after 400 year day of week does not change
 
+        if (year == UNDEFINED) getYearMillis();
+
         if (isCanonTime) {                                          //counting from 1 Jan 1970
-            if (year == UNDEFINED) getYearMillis();
             int curr = 1970;
             int count = 0;
             while (curr != year) {
@@ -661,11 +666,33 @@ public abstract class Calendar implements Serializable {
                 ++count;
                 if (isLeap(curr)) ++curr;
             }
+            //day of week has been calculated up to 1 Jan of curr year
             count += getDayOfYear() - getWeekOfYear() * 7 - 1;
 
             return DAY_OF_WEEK_1_JAN_1970.roll(count);
         } else {
+            long year = this.year / 400 * 400;
+            int count = 0;
+            while (year < this.year && !isLeap(year)) {                 // <= 8 times cycle
+                ++year;
+                ++count;
+            }
+            --count;                                                   //compensate if it is the target year
+            if (year < this.year - 3) {
+                do {                                                   // <= 100 times cycle
+                    count += (isLeap(year)) ? 2 : 1;                   //we didn't add this on the previous step
+                    year += 4;
+                    count += 3;                                        //do not add to calculated year because it can be equals this.year
+                } while (year < this.year - 3);
+            }
+            while (year < this.year) {                                 // <= 4 times cycle
+                count += (isLeap(year)) ? 2 : 1;
+                ++year;
+            }
+            //day of week has been calculated up to 1 Jan of curr year
+            count += getDayOfYear() - getWeekOfYear() * 7 - 1;
 
+            return DAY_OF_WEEK_BIG_BANG.roll(count);
         }
     }
 
@@ -674,11 +701,7 @@ public abstract class Calendar implements Serializable {
      * @return the hour of the day in 24h format (0 - 23)
      */
     protected int _getHours() {
-        if (monthTime != UNDEFINED) {
-            return (int) (monthTime % MILLIS_IN_DAY) / MILLIS_IN_HOUR;
-        } else {
-            return (int) (timeUTC % MILLIS_IN_DAY) / MILLIS_IN_HOUR;
-        }
+        return (int) (timeUTC % MILLIS_IN_DAY) / MILLIS_IN_HOUR;
     }
 
     /**
@@ -686,19 +709,15 @@ public abstract class Calendar implements Serializable {
      * @return current number of minutes (0 - 59)
      */
     public int getMinutes() {
-        if (monthTime != UNDEFINED) {
-            return (int) (monthTime % MILLIS_IN_HOUR) / MILLIS_IN_MINUTE;
-        } else {
-            return (int) (timeUTC % MILLIS_IN_HOUR) / MILLIS_IN_MINUTE;
-        }
+        return (int) (timeUTC % MILLIS_IN_HOUR) / MILLIS_IN_MINUTE;
     }
 
+    /**
+     * In the current minute
+     * @return current number of seconds (0 - 59)
+     */
     public int getSecond() {
-        if (monthTime != UNDEFINED) {
-            return (int) (monthTime % MILLIS_IN_MINUTE) / 1000;
-        } else {
-            return (int) (timeUTC % MILLIS_IN_MINUTE) / 1000;
-        }
+        return (int) (timeUTC % MILLIS_IN_MINUTE) / 1000;
     }
 
     public class Time {
@@ -719,5 +738,25 @@ public abstract class Calendar implements Serializable {
     @Override
     public int hashCode() {
         return (int) (timeUTC % Integer.MAX_VALUE) * ((isCanonTime) ? 1 : -1);
+    }
+
+    @Override
+    public String toString() {
+        // TODO: 9/29/2021 add represent type (REGEX)
+        if (isCanonTime) {
+            return "" + getDayOfMonth() + " " + getMonth() + " " + getYear() + " " + getDayOfWeek() + " " + _getHours() + ":" + getMinutes();
+        } else {
+            //TODO implement
+            throw new UnsupportedOperationException("This part of toString method is not implemented yet");
+        }
+    }
+
+    // TODO: 9/29/2021 REGEX IS BETTER
+    /**
+     * In which way to represent calendar as a String,
+     * with descriptions
+     */
+    public enum RepresentType {
+
     }
 }
