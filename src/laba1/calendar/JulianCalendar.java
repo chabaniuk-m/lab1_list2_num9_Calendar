@@ -4,12 +4,16 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.TimeZone;
 
-public class GregorianCalendar extends Calendar {
+/**
+ * Simpler than GregorianCalendar.
+ * The main difference is realization of method isLeap
+ */
+public class JulianCalendar extends Calendar {
 
     /**
      * Uses default time zone and current time
      */
-    public GregorianCalendar() {
+    public JulianCalendar() {
         this(TimeZone.getDefault());
     }
 
@@ -17,7 +21,7 @@ public class GregorianCalendar extends Calendar {
      * Uses current time
      * @param zone time zone
      */
-    public GregorianCalendar(@NotNull TimeZone zone) {
+    public JulianCalendar(@NotNull TimeZone zone) {
         super(zone);
     }
 
@@ -27,7 +31,7 @@ public class GregorianCalendar extends Calendar {
      * @param isCanon true milliseconds is after 1 Jan 1970,
      *                false if earlier (time must be after Big Bang)
      */
-    public GregorianCalendar(long time, boolean isCanon) {
+    public JulianCalendar(long time, boolean isCanon) {
         isCanonTime = isCanon;
         initZone(TimeZone.getDefault());
         update(time);
@@ -35,28 +39,23 @@ public class GregorianCalendar extends Calendar {
 
     @Override
     public boolean isLeap(long year) {
-        return Calendar.isLeapYear(year);
+        return year % 4 == 0;
     }
 
     @Override
     public void setSundayFirstDayOfWeek(boolean sunday) {
-        firstDayOfWeek = sunday ? DayOfWeek.Sunday : DayOfWeek.Monday;
+        if (!sunday) return;
+
+        throw new UnsupportedOperationException("JulianCalendar does not support changing the first day of week");
     }
 
-    /**
-     * For get(type) method
-     * @return conventional index of dayOfWeek
-     */
+    @Override
     protected int _getDayOfWeek() {
-        if (firstDayOfWeek == DayOfWeek.Sunday) {
-            return getDayOfWeek().getValue() % 7 + 1;
-        } else {
-            return getDayOfWeek().getValue();
-        }
+        return getDayOfWeek().getValue();
     }
 
     @Override
     public Calendar clone() {
-        return new GregorianCalendar(timeUTC, isCanonTime);
+        return new JulianCalendar(timeUTC, isCanonTime);
     }
 }

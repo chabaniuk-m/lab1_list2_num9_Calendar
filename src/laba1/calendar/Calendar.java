@@ -1,56 +1,54 @@
 package laba1.calendar;
 
-import jdk.jshell.spi.ExecutionControl;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.Serializable;
-import java.util.Date;
 import java.util.TimeZone;
 
 /**
  * Prefer calculate value rather store it
  */
-public abstract class Calendar implements Serializable {
+public abstract class Calendar implements Serializable, Cloneable {
 
     //************************* constants for client **************************
 
     /**
-     * for get(int type) method
+     * number of days in the common year (365)
      */
     public static final int DAYS_IN_COMMON_YEAR;
     /**
-     * for get(int type) method
+     * number of days in the leap year (366)
      */
     public static final int DAYS_IN_LEAP_YEAR;
     /**
      * for get(int type) method
      */
-    public static final int ERA;
+    public static final int ERA = 0;
     /**
      * for get(int type) method
      */
-    public static final int YEAR;
+    public static final int YEAR = 1;
     /**
      * for get(int type) method
      */
-    public static final int MONTH;
+    public static final int MONTH = 2;
     /**
      * for get(int type) method
      */
-    public static final int DAY_OF_WEEK;
+    public static final int DAY_OF_WEEK = 3;
     /**
      * number of day in month,
      * for get(int type) method
      */
-    public static final int DAY;
+    public static final int DAY = 4;
     /**
      * for get(int type) method
      */
-    public static final int WEEK_OF_YEAR, WEEK_OF_MONTH, DAY_OF_YEAR;
+    public static final int WEEK_OF_YEAR = 5, WEEK_OF_MONTH = 6, DAY_OF_YEAR = 7;
     /**
      * for get(int type) method
      */
-    public static final int HOUR, MINUTE, SECOND;
+    public static final int HOUR = 8, MINUTE = 9, SECOND = 10;
 
     /**
      * How many days have to past
@@ -77,35 +75,33 @@ public abstract class Calendar implements Serializable {
             this.value = value;
         }
 
-        /*public int getValue() {
-            return value;
+        /**
+         * Throws IllegalArgumentException
+         * @param monthNumber starts from February, must be in range [2 - 13],
+         *                    13 - days up to New year
+         */
+        static DaysUpTo valueOf(int monthNumber) {
+            return switch(monthNumber) {
+                case 2 -> February;
+                case 3 -> March;
+                case 4 -> April;
+                case 5 -> May;
+                case 6 -> June;
+                case 7 -> July;
+                case 8 -> August;
+                case 9 -> September;
+                case 10 -> October;
+                case 11 -> November;
+                case 12 -> December;
+                case 13 -> NewYear;
+                default -> throw new IllegalArgumentException("Argument is not in range [2 - 13]");
+            };
         }
-
-        *//**
-         * the same as getValue
-         * @return the number of days from the beginning of the year to the current date in common year
-         *//*
-        public int count() {
-            return value;
-        }*/
     }
-
-    protected static int counter = -1;
 
     static {
         DAYS_IN_COMMON_YEAR = 365;
         DAYS_IN_LEAP_YEAR = DAYS_IN_COMMON_YEAR + 1;
-        ERA = counter++;
-        YEAR = counter++;
-        MONTH = counter++;
-        DAY_OF_WEEK = counter++;
-        DAY = counter++;
-        WEEK_OF_YEAR = counter++;
-        WEEK_OF_MONTH = counter++;
-        DAY_OF_YEAR = counter++;
-        HOUR = counter++;
-        MINUTE = counter++;
-        SECOND = counter++;
     }
 
     //********************* useful constants ******************************
@@ -120,6 +116,10 @@ public abstract class Calendar implements Serializable {
     protected static final long AGE_OF_UNIVERSE;
     protected static final DayOfWeek DAY_OF_WEEK_1_JAN_1970;
     protected static final DayOfWeek DAY_OF_WEEK_BIG_BANG;
+    /**
+     * month of 30 days
+     */
+    protected static final long AVERAGE_MILLIS_IN_MONTH;
     protected static final long AVERAGE_MILLIS_IN_YEAR;
     /**
      * time from Big Bang to 1 Jan 1970 year b.c.
@@ -132,6 +132,7 @@ public abstract class Calendar implements Serializable {
         MILLIS_IN_HOUR = 60 * MILLIS_IN_MINUTE;
         MILLIS_IN_DAY = 24 * MILLIS_IN_HOUR;
         AVERAGE_MILLIS_IN_YEAR = (long) 363.2425 * MILLIS_IN_DAY;
+        AVERAGE_MILLIS_IN_MONTH = 30L * MILLIS_IN_DAY;
         AGE_OF_UNIVERSE = 13_799_000_000L;
         DAY_OF_WEEK_1_JAN_1970 = DayOfWeek.Thursday;
         DAY_OF_WEEK_BIG_BANG = DayOfWeek.Sunday;                                   // TODO: 9/29/2021 evaluate and set appropriate day of week
@@ -192,6 +193,15 @@ public abstract class Calendar implements Serializable {
     }
 
     /**
+     * Do not change the <em>absolute</em> time (GMT)
+     * @param zone new time zone
+     */
+    public void setZone(@NotNull TimeZone zone) {
+        this.zone = zone;
+        rawOffset = zone.getDSTSavings() + zone.getRawOffset();
+    }
+
+    /**
      * sets current time, calls mandatory method
      * @param zone time zone for correct hours
      */
@@ -205,7 +215,16 @@ public abstract class Calendar implements Serializable {
      * sets the current time for calendar (System.currentTimeMillis())
      */
     protected void update() {
-        timeUTC = System.currentTimeMillis() + rawOffset + ((isCanonTime) ? 0 : MILLIS_FROM_BIN_BANG);
+        update(System.currentTimeMillis() + rawOffset + ((isCanonTime) ? 0 : MILLIS_FROM_BIN_BANG));
+    }
+
+    /**
+     * Resets the time to passed time and make fields undefined
+     * @param timeMillis new time
+     */
+    protected void update(long timeMillis) {
+        if (timeMillis < 0) throw new IllegalArgumentException("Time can not be negative");
+        timeUTC = timeMillis;
         monthTime = UNDEFINED;
         yearTime = UNDEFINED;
         year = UNDEFINED;
@@ -219,11 +238,34 @@ public abstract class Calendar implements Serializable {
         /**
          * before Chris
          */
-        BC,
+        BC(-1),
         /**
          * after Chris
          */
-        AD;
+        AD(1);
+
+        private final int value;
+        private Era(int value) {
+            this.value = value;
+        }
+
+        public int getValue() {
+            return value;
+        }
+
+        /**
+         * AD = 1
+         * BC = -1
+         * @param value integer value to be converted to Era
+         * @return Era appropriate with the passed value
+         */
+        public Era valueOf(int value) {
+            return switch(value) {
+                case -1 -> BC;
+                case 1 -> AD;
+                default -> throw new IllegalArgumentException("Enum Era has only 2 values: 1 and -1");
+            };
+        }
     }
 
     /**
@@ -231,6 +273,8 @@ public abstract class Calendar implements Serializable {
      * @return current era
      */
     public Era getEra() {
+        if (yearTime == UNDEFINED) getYearMillis();                 //side effect of this method is to init era
+
         return era;
     }
 
@@ -239,10 +283,12 @@ public abstract class Calendar implements Serializable {
      * @return current year
      */
     public long getYear() {
-        getYearMillis();
+        if (yearTime == UNDEFINED) getYearMillis();
+
         return year;
     }
 
+    // TODO: 10/5/2021 different behaviour in Julian and Gregorian
     /**
      * How many milliseconds passed from the beginning of the current year.
      * Side effects:
@@ -261,6 +307,7 @@ public abstract class Calendar implements Serializable {
 
             int year = 1970;
             long remained = timeUTC;
+            this.era = Era.AD;
 
             while (true) {
 
@@ -269,7 +316,6 @@ public abstract class Calendar implements Serializable {
                 if (remained < yearTime) {
 
                     this.year = year;
-                    this.era = Era.AD;
                     this.yearTime = remained;
 
                     return remained;
@@ -280,7 +326,7 @@ public abstract class Calendar implements Serializable {
             }
         } else {
 
-            // TODO: 9/26/2021 test if the following lines working correct
+            // TODO: 9/26/2021 realize without AVERAGE_MILLIS_IN_YEAR for correctness
 
             long beginOfChrisCalendar = AGE_OF_UNIVERSE - 1970;
             long years = timeUTC / AVERAGE_MILLIS_IN_YEAR;
@@ -303,7 +349,14 @@ public abstract class Calendar implements Serializable {
      * @param year year to be checked
      * @return true if the year is leap, false otherwise
      */
-    public static boolean isLeap(long year) {
+    public abstract boolean isLeap(long year);
+
+    /**
+     * Uses Gregorian Calendar method to check if year is leap (DAYS_IN_LEAP_YEAR day in year)
+     * @param year year to be checked
+     * @return true if year is leap, false; otherwise
+     */
+    public static boolean isLeapYear(long year) {
         if (year % 4 != 0) return false;
 
         if (year % 100 != 0) return true;
@@ -328,6 +381,19 @@ public abstract class Calendar implements Serializable {
         private final int value;
         Month(int value) {
             this.value = value;
+        }
+
+        /**
+         *
+         * @param isLeap true if February contains 29 days
+         * @return number of days in the current month
+         */
+        public int days(boolean isLeap) {
+            return switch(this) {
+                case February -> isLeap ? 29 : 28;
+                case April, June, September, November -> 30;
+                case January, March, May, July, August, October, December -> 31;
+            };
         }
 
         /**
@@ -421,8 +487,8 @@ public abstract class Calendar implements Serializable {
          * @return month after count days
          */
         public Month roll(long year, int day, int count) {
-            boolean leap = isLeap(year);
-            int days = toDayOfYear(this, day, isLeap(year)) + count;
+            boolean leap = isLeapYear(year);
+            int days = toDayOfYear(this, day, isLeapYear(year)) + count;
             int daysInYear;
             if (days <= 0) {
                 do {
@@ -431,7 +497,7 @@ public abstract class Calendar implements Serializable {
                         daysInYear = DAYS_IN_COMMON_YEAR;
                         leap = false;
                     } else {
-                        daysInYear = (leap = isLeap(year)) ? DAYS_IN_LEAP_YEAR : DAYS_IN_COMMON_YEAR;
+                        daysInYear = (leap = isLeapYear(year)) ? DAYS_IN_LEAP_YEAR : DAYS_IN_COMMON_YEAR;
                     }
                 } while ((days += daysInYear) <= 0);
 
@@ -445,7 +511,7 @@ public abstract class Calendar implements Serializable {
                         daysInYear = DAYS_IN_COMMON_YEAR;
                         leap = false;
                     } else {
-                        daysInYear = (leap = isLeap(year)) ? DAYS_IN_LEAP_YEAR : DAYS_IN_COMMON_YEAR;
+                        daysInYear = (leap = isLeapYear(year)) ? DAYS_IN_LEAP_YEAR : DAYS_IN_COMMON_YEAR;
                     }
                 }
 
@@ -479,16 +545,19 @@ public abstract class Calendar implements Serializable {
     }
 
     // TODO: 9/28/2021 rewrite using yearTime
+    // TODO: 10/5/2021 make abstract
     /**
      * Side effect:     initialize monthTime            //TODO remove this line in realize
      * @return current month according to time
      */
     public Month getMonth() {                                                                  // one of the tasks is to ensure that monthTime is initialized
-        if (monthTime != UNDEFINED) {
+        if (monthTime != UNDEFINED)
             return Month.January.roll(year, 1, getDayOfYear() - 1);                 // just believe that year is always initialized here
-        } else {
+        else {
+
             long millisFromStartOfTheYear = getYearMillis();
-            long leap = 31L * MILLIS_IN_DAY;
+
+            long leap_ = 31L * MILLIS_IN_DAY;
             long common = 30L * MILLIS_IN_DAY;
             long february = ((isLeap(getYear())) ? 29L : 28L) * MILLIS_IN_DAY;
 
@@ -499,64 +568,67 @@ public abstract class Calendar implements Serializable {
                 throw new RuntimeException("Incorrect value obtained from getYearMillis() method, value - " + millisFromStartOfTheYear);
             }
 
-            if (millisFromStartOfTheYear < leap) {
-                monthTime = millisFromStartOfTheYear;
-                return Month.January;
+            // old correct realization
+            {
+                if (millisFromStartOfTheYear < leap_) {
+                    monthTime = millisFromStartOfTheYear;
+                    return Month.January;
+                }
+
+                if ((millisFromStartOfTheYear -= leap_) < february) {
+                    monthTime = millisFromStartOfTheYear;
+                    return Month.February;
+                }
+
+                if ((millisFromStartOfTheYear -= february) < leap_) {
+                    monthTime = millisFromStartOfTheYear;
+                    return Month.March;
+                }
+
+                if ((millisFromStartOfTheYear -= leap_) < common) {
+                    monthTime = millisFromStartOfTheYear;
+                    return Month.April;
+                }
+
+                if ((millisFromStartOfTheYear -= common) < leap_) {
+                    monthTime = millisFromStartOfTheYear;
+                    return Month.May;
+                }
+
+                if ((millisFromStartOfTheYear -= leap_) < common) {
+                    monthTime = millisFromStartOfTheYear;
+                    return Month.June;
+                }
+
+                if ((millisFromStartOfTheYear -= common) < leap_) {
+                    monthTime = millisFromStartOfTheYear;
+                    return Month.July;
+                }
+
+                if ((millisFromStartOfTheYear -= leap_) < leap_) {
+                    monthTime = millisFromStartOfTheYear;
+                    return Month.August;
+                }
+
+                if ((millisFromStartOfTheYear -= leap_) < common) {
+                    monthTime = millisFromStartOfTheYear;
+                    return Month.September;
+                }
+
+                if ( (millisFromStartOfTheYear -= common) < leap_) {
+                    monthTime = millisFromStartOfTheYear;
+                    return Month.October;
+                }
+
+                if ( (millisFromStartOfTheYear -= leap_) < common) {
+                    monthTime = millisFromStartOfTheYear;
+                    return Month.November;
+                }
+
+                monthTime = millisFromStartOfTheYear - common;
+
+                return Month.December;
             }
-
-            if ((millisFromStartOfTheYear -= leap) < february) {
-                monthTime = millisFromStartOfTheYear;
-                return Month.February;
-            }
-
-            if ((millisFromStartOfTheYear -= february) < leap) {
-                monthTime = millisFromStartOfTheYear;
-                return Month.March;
-            }
-
-            if ((millisFromStartOfTheYear -= leap) < common) {
-                monthTime = millisFromStartOfTheYear;
-                return Month.April;
-            }
-
-            if ((millisFromStartOfTheYear -= common) < leap) {
-                monthTime = millisFromStartOfTheYear;
-                return Month.May;
-            }
-
-            if ((millisFromStartOfTheYear -= leap) < common) {
-                monthTime = millisFromStartOfTheYear;
-                return Month.June;
-            }
-
-            if ((millisFromStartOfTheYear -= common) < leap) {
-                monthTime = millisFromStartOfTheYear;
-                return Month.July;
-            }
-
-            if ((millisFromStartOfTheYear -= leap) < leap) {
-                monthTime = millisFromStartOfTheYear;
-                return Month.August;
-            }
-
-            if ((millisFromStartOfTheYear -= leap) < common) {
-                monthTime = millisFromStartOfTheYear;
-                return Month.September;
-            }
-
-            if ( (millisFromStartOfTheYear -= common) < leap) {
-                monthTime = millisFromStartOfTheYear;
-                return Month.October;
-            }
-
-            if ( (millisFromStartOfTheYear -= leap) < common) {
-                monthTime = millisFromStartOfTheYear;
-                return Month.November;
-            }
-
-            monthTime = millisFromStartOfTheYear - common;
-
-            return Month.December;
         }
     }
 
@@ -579,11 +651,20 @@ public abstract class Calendar implements Serializable {
     }
 
     /**
+     * Calendar does not set first day of week automatically appropriate to time zone,
+     * it uses be default Monday as first day of week
+     * @return Monday or Sunday
+     */
+    public DayOfWeek getFirstDayOfWeek() {
+        return firstDayOfWeek;
+    }
+
+    /**
      *
      * @return the number of the current week in the year
      */
     public int getWeekOfYear() {
-        return (int) (getYearMillis() / (7 * MILLIS_IN_DAY));
+        return (int) (getYearMillis() / (7 * MILLIS_IN_DAY)) + 1;
     }
 
     /**
@@ -644,6 +725,55 @@ public abstract class Calendar implements Serializable {
         }
     }
 
+    public abstract Calendar clone();
+
+    /**
+     *
+     * @param var true if you want to set Sunday as first day of week (UnsupportedOperationException can be thrown by JulianCalendar)
+     *            false if you want to set Monday as first day of week
+     */
+    public abstract void setSundayFirstDayOfWeek(boolean var);
+
+    // Pattern template method
+    /**
+     *
+     * @param type which kind of information do you want to get.
+     *             E.g. get(ERA) return -1 (Era.BC) or 1 (Era.AD),
+     *             get(HOUR) return number of hour
+     * @return the information about the chosen type
+     */
+    public int get(int type) {
+        return switch(type) {
+            case ERA -> getEra().value;             // correct
+            case MONTH -> getMonth().value;         // correct
+            case DAY_OF_WEEK -> _getDayOfWeek();
+            case DAY -> getDayOfMonth();            // correct
+            case DAY_OF_YEAR -> getDayOfYear();     // correct
+            case WEEK_OF_MONTH -> getWeekOfMonth(); // correct
+            case WEEK_OF_YEAR -> getWeekOfYear();   // correct
+            case HOUR -> getHours();                // correct
+            case MINUTE -> getMinutes();            // correct
+            case SECOND -> getSeconds();            // correct
+            default -> throw new IllegalArgumentException("Type with value " + type + " is not recognized");
+        };
+    }
+
+    /**
+     *
+     * @return number of week in month
+     */
+    private int getWeekOfMonth() {
+        if (monthTime == UNDEFINED) getMonth();
+
+        return (int) (monthTime % (7 * MILLIS_IN_DAY)) + 1;
+    }
+
+    /**
+     *
+     * @return number of day of week appropriate to firstDayOfWeek
+     */
+    protected abstract int _getDayOfWeek();
+
     /**
      * Calculates day of week appropriate to current time
      * @return current day of week
@@ -659,9 +789,9 @@ public abstract class Calendar implements Serializable {
             int curr = 1970;
             int count = 0;
             while (curr != year) {
+                if (isLeap(curr)) ++count;
                 ++curr;
                 ++count;
-                if (isLeap(curr)) ++curr;
             }
             //day of week has been calculated up to 1 Jan of curr year
             count += getDayOfYear() - getWeekOfYear() * 7 - 1;
@@ -697,7 +827,7 @@ public abstract class Calendar implements Serializable {
      * for get(type) method
      * @return the hour of the day in 24h format (0 - 23)
      */
-    protected int _getHours() {
+    public int getHours() {
         return (int) (timeUTC % MILLIS_IN_DAY) / MILLIS_IN_HOUR;
     }
 
@@ -741,7 +871,7 @@ public abstract class Calendar implements Serializable {
     public String toString() {
         // TODO: 9/29/2021 add represent type (REGEX)
         if (isCanonTime) {
-            return "" + getDayOfMonth() + " " + getMonth() + " " + getYear() + " " + getDayOfWeek() + " " + _getHours() + ":" + getMinutes();
+            return "" + getDayOfMonth() + " " + getMonth() + " " + getYear() + " " + getDayOfWeek() + " " + getHours() + ":" + getMinutes();
         } else {
             //TODO implement
             throw new UnsupportedOperationException("This part of toString method is not implemented yet");
