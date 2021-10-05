@@ -4,6 +4,7 @@ import jdk.jshell.spi.ExecutionControl;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.Serializable;
+import java.util.Date;
 import java.util.TimeZone;
 
 /**
@@ -117,10 +118,6 @@ public abstract class Calendar implements Serializable {
      * number of year after Big Bang up to 1970
      */
     protected static final long AGE_OF_UNIVERSE;
-    /**
-     * needs to obtain correct timeUTC while calling method update()
-     */
-    protected static final long DEFAULT_RAW_OFFSET;
     protected static final DayOfWeek DAY_OF_WEEK_1_JAN_1970;
     protected static final DayOfWeek DAY_OF_WEEK_BIG_BANG;
     protected static final long AVERAGE_MILLIS_IN_YEAR;
@@ -136,7 +133,6 @@ public abstract class Calendar implements Serializable {
         MILLIS_IN_DAY = 24 * MILLIS_IN_HOUR;
         AVERAGE_MILLIS_IN_YEAR = (long) 363.2425 * MILLIS_IN_DAY;
         AGE_OF_UNIVERSE = 13_799_000_000L;
-        DEFAULT_RAW_OFFSET = TimeZone.getDefault().getRawOffset();
         DAY_OF_WEEK_1_JAN_1970 = DayOfWeek.Thursday;
         DAY_OF_WEEK_BIG_BANG = DayOfWeek.Sunday;                                   // TODO: 9/29/2021 evaluate and set appropriate day of week
         MILLIS_FROM_BIN_BANG = AGE_OF_UNIVERSE * AVERAGE_MILLIS_IN_YEAR;
@@ -183,6 +179,7 @@ public abstract class Calendar implements Serializable {
      */
     protected Calendar() {
         this(TimeZone.getDefault());
+        System.out.println(System.currentTimeMillis() % MILLIS_IN_DAY / MILLIS_IN_HOUR);
     }
 
     /**
@@ -191,7 +188,7 @@ public abstract class Calendar implements Serializable {
      */
     protected void initZone(@NotNull TimeZone zone) {
         this.zone = zone;
-        rawOffset = zone.getRawOffset() - DEFAULT_RAW_OFFSET;
+        rawOffset = zone.getDSTSavings() + zone.getRawOffset();
     }
 
     /**
@@ -208,7 +205,7 @@ public abstract class Calendar implements Serializable {
      * sets the current time for calendar (System.currentTimeMillis())
      */
     protected void update() {
-        timeUTC = System.currentTimeMillis() - DEFAULT_RAW_OFFSET + ((isCanonTime) ? 0 : MILLIS_FROM_BIN_BANG);
+        timeUTC = System.currentTimeMillis() + rawOffset + ((isCanonTime) ? 0 : MILLIS_FROM_BIN_BANG);
         monthTime = UNDEFINED;
         yearTime = UNDEFINED;
         year = UNDEFINED;
@@ -716,7 +713,7 @@ public abstract class Calendar implements Serializable {
      * In the current minute
      * @return current number of seconds (0 - 59)
      */
-    public int getSecond() {
+    public int getSeconds() {
         return (int) (timeUTC % MILLIS_IN_MINUTE) / 1000;
     }
 
