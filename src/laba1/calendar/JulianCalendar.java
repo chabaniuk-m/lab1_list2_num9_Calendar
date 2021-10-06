@@ -38,6 +38,11 @@ public class JulianCalendar extends Calendar {
     }
 
     @Override
+    protected void update() {
+        update(System.currentTimeMillis() + rawOffset + ((isCanonTime) ? 0 : MILLIS_FROM_BIN_BANG) + 13L * MILLIS_IN_DAY);
+    }
+
+    @Override
     public boolean isLeap(long year) {
         return year % 4 == 0;
     }
