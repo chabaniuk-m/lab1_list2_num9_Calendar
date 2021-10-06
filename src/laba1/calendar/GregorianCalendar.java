@@ -4,6 +4,9 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.TimeZone;
 
+/**
+ * Represents Gregorian calendar - the most used calendar nowadays
+ */
 public class GregorianCalendar extends Calendar {
 
     /**

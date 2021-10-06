@@ -6,7 +6,7 @@ import java.util.TimeZone;
 
 /**
  * Simpler than GregorianCalendar.
- * The main difference is realization of method isLeap
+ * The main difference is realization of method isLeap.
  */
 public class JulianCalendar extends Calendar {
 
